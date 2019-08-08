@@ -36,7 +36,7 @@ def explory_cate_data(data, col_name, show_min_count=10):
 
 if __name__ == "__main__":
     set_format()
-    data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'
+    data_path = '/Users/fan/PycharmProjects/tianchi/zhilian/data/'
     #======Load Data======
     #load train_user
     raw_user_dtype = {'live_city_id': np.int16, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
@@ -56,8 +56,9 @@ if __name__ == "__main__":
                        'start_work_date': object}
     test_user = pd.read_csv(data_path + "user_ToBePredicted", delimiter="\t", error_bad_lines=False, dtype=test_user_dtype)
     #load test_action
-    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723.dms", delim_whitespace=True)
+    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723", delim_whitespace=True)
 
+    user_action = raw_action.groupby(['user_id', 'jd_no'])['delivered', 'satisfied'].max().reset_index()
     #======Data Exploration and Preprocess======
     tmp = raw_user['desire_jd_city_id'].str.split(',')
     raw_user['desire_jd_city_id_0'] = tmp.apply(lambda x: x[0])
