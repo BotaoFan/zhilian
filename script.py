@@ -63,3 +63,5 @@ if __name__ == "__main__":
     raw_user['desire_jd_city_id_0'] = tmp.apply(lambda x: x[0])
     raw_user['desire_jd_city_id_1'] = tmp.apply(lambda x: x[1])
     raw_user['desire_jd_city_id_2'] = tmp.apply(lambda x: x[2])
+
+
