@@ -4,6 +4,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from collections import defaultdict
+import re
 
 def set_format():
     pd.set_option('display.max_columns', 1000)
@@ -16,6 +18,11 @@ def show_data_info_in_table(data):
         tmp = data.iloc[:2, i]
         print '<tr><td>' + str(tmp.name) + '</td><td> </td><td>' + str(tmp.dtype) + '</td>'
     print '</table>'
+
+
+def split_str(data, sep='[/(), |]'):
+    return data.apply(lambda x: set(re.split(sep, x)))
+
 
 
 def explory_cate_data(data, col_name, show_min_count=10):
@@ -56,12 +63,15 @@ if __name__ == "__main__":
                        'start_work_date': object}
     test_user = pd.read_csv(data_path + "user_ToBePredicted", delimiter="\t", error_bad_lines=False, dtype=test_user_dtype)
     #load test_action
-    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723.dms", delim_whitespace=True)
+    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723", delim_whitespace=True)
 
+    user_action = raw_action.groupby(['user_id', 'jd_no'])['delivered', 'satisfied'].max().reset_index()
     #======Data Exploration and Preprocess======
     tmp = raw_user['desire_jd_city_id'].str.split(',')
     raw_user['desire_jd_city_id_0'] = tmp.apply(lambda x: x[0])
     raw_user['desire_jd_city_id_1'] = tmp.apply(lambda x: x[1])
     raw_user['desire_jd_city_id_2'] = tmp.apply(lambda x: x[2])
+
+    raw_user['desire_jd_industry_set'] = raw_user['desire_jd_industry_id'].apply(lambda x: set(x.split('/')))
 
 
