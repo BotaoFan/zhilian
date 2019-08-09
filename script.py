@@ -11,6 +11,7 @@ def set_format():
     pd.set_option('display.max_columns', 1000)
     pd.set_option('display.width', 1000)
 
+
 def show_data_info_in_table(data):
     num_rows, num_columns = data.shape
     print '<table>'
@@ -66,7 +67,10 @@ if __name__ == "__main__":
     test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723", delim_whitespace=True)
 
     user_action = raw_action.groupby(['user_id', 'jd_no'])['delivered', 'satisfied'].max().reset_index()
-    #======Data Exploration and Preprocess======
+    #======Data Preprocess======
+    user = raw_user.copy()
+    user.set_index('user_id', inplace=True)
+
     tmp = raw_user['desire_jd_city_id'].str.split(',')
     raw_user['desire_jd_city_id_0'] = tmp.apply(lambda x: x[0])
     raw_user['desire_jd_city_id_1'] = tmp.apply(lambda x: x[1])
