@@ -43,7 +43,7 @@ def explory_cate_data(data, col_name, show_min_count=10):
 
 if __name__ == "__main__":
     set_format()
-    data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'
+    data_path = '/Users/fan/PycharmProjects/tianchi/zhilian/data/'
     #======Load Data======
     #load train_user
     raw_user_dtype = {'live_city_id': np.int16, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
@@ -51,12 +51,12 @@ if __name__ == "__main__":
 
     raw_user = pd.read_csv(data_path + 'table1_user', delimiter='\t', error_bad_lines=False, dtype=raw_user_dtype)
     #load train_job
-    raw_job_dtype = {'city': np.int16, 'require_nums': np.int16, 'max_salary': object, 'min_salary': object,
+    raw_job_dtype = {'city': np.int16, 'require_nums': np.int16, 'max_salary': np.int32, 'min_salary': np.int32,
                      'start_date': object, 'end_date': object, 'raw_job': np.int16, 'is_travel': np.int16,
                      'min_years': np.int16, }
     raw_job = pd.read_csv(data_path + 'table2_jd', delimiter='\t', error_bad_lines=False, dtype=raw_job_dtype)
     #load train_action
-    raw_action_dtype = {'browsed': np.int16, 'delivered': np.int16, 'satisfied': np.int16}
+    raw_action_dtype = {'browsed': np.int16, 'delivered': np.int16, 'satisfied': np.int16,}
     raw_action = pd.read_csv(data_path + 'table3_action', delimiter='\t', error_bad_lines=False, dtype=raw_action_dtype)
     #load test_user
     test_user_dtype = {'live_city_id': np.int16, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
