@@ -3,6 +3,9 @@
 # @Author : Botao Fan
 import pandas as pd
 import numpy as np
+import sys
+import time
+import multiprocessing
 
 
 def cal_one(arr):
@@ -30,3 +33,27 @@ def my_score(test_true, test_pred):
     score['score_satisfied'] = score_satisfied
     score['score'] = score['score_delivered'] * 0.3 + score['score_delivered'] * 0.7
     return score['score'].mean()
+
+
+def pr(t_index):
+    for i in range(40):
+        print str(t_index) + '\t' + str(i)
+        a = np.random.rand(200, 200)
+        for i in range(4000):
+            t = np.random.rand(200, 200)
+            a *= t
+        time.sleep(3)
+
+
+def execute():
+    process = []
+    for i in range(4):
+        t = multiprocessing.Process(target=pr, args=(i, ))
+        t.start()
+        process.append(t)
+
+    for p in process:
+        p.join()
+
+if __name__ == '__main__':
+    pr(1)

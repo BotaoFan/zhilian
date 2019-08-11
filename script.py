@@ -11,6 +11,7 @@ import xgboost as xgb
 import lightgbm as lgb
 import warnings
 import re
+import score_fun
 warnings.filterwarnings('ignore')
 
 salary_dict = {'0000000000': np.nan, '0000001000': 1, '0100002000': 2, '0200104000': 3, '0400106000': 4,
@@ -125,7 +126,7 @@ def train_action_generate(raw_action):
 
 
 def test_action_generate(raw_action):
-    return raw_action.copy()
+    return raw_action.set_index(['user_id', 'jd_no'])
 
 
 def find_len_set(x):
@@ -191,6 +192,76 @@ def feats_generate(action, user, job):
     return action_feats
 
 
+def cal_one(arr):
+    if np.sum(arr) == 0:
+        raise ValueError('Data do not contain positive point!')
+    arr = np.array(arr)
+    arr_cumsum = np.cumsum(arr)
+    arr_pos = np.arange(len(arr)) + 1
+    arr_result = (arr + 0.0) * arr_cumsum / arr_pos
+    return (np.sum(arr_result)+0.0) / np.sum(arr)
+
+
+def my_score(test_true, test_pred):
+    '''
+    :param result_true: DataFrame['user_id', 'job_id', 'delivered', 'satisfied']
+    :param result_pred: DataFrame ['user_id', 'job_id', 'score']
+    :return:
+    '''
+    result = pd.merge(left=test_pred, right=test_true, on=['user_id', 'job_id'], how='left')
+    result.sort_values(['user_id', 'score'], ascending=False, inplace=True)
+    score_delivered = result.groupby('user_id')['delivered'].apply(lambda x: cal_one(x))
+    score_satisfied = result.groupby('user_id')['satisfied'].apply(lambda x: cal_one(x))
+    score = result.groupby('user_id')[['user_id']].count()
+    score['score_delivered'] = score_delivered
+    score['score_satisfied'] = score_satisfied
+    score['score'] = score['score_delivered'] * 0.3 + score['score_delivered'] * 0.7
+    return score['score'].mean()
+
+
+def cv_test(model, other_paras, cv_name, cv_paras, data, kfold=4):
+    '''
+    :param model:
+    :param cv_paras:
+    :param score:
+    :param data: DataFrame(['y','delivered','satisfied'])
+    :param kfold:
+    :return:
+    '''
+    data_count = data.shape[0]
+    fold_count = data_count / kfold
+    fold_dict, test_data_list, train_data_list, score = {}, [], [], {}
+    for i in range(kfold):
+        fold_dict[i] = [i * fold_count, (i+1) * fold_count]
+    for i in range(kfold):
+        test_data = data.iloc[fold_dict[i][0]:fold_dict[i][1], :].copy()
+        train_data = data.drop(index=test_data.index).copy()
+        test_data_list.append(test_data)
+        train_data_list.append(train_data)
+    for para in cv_paras:
+        score[para] = []
+        for i in range(kfold):
+            print ''
+            train_data = train_data_list[i]
+            test_data = test_data_list[i]
+            other_paras[cv_name] = para
+            pred_model = model(**other_paras)
+            pred_model.fit(train_data.drop(columns=['y', 'delivered', 'satisfied']).values, train_data['y'].values)
+            y = pred_model.predict(test_data.drop(columns=['y', 'delivered', 'satisfied']).values)
+            test_true = test_data[['delivered', 'satisfied']].reset_index()
+            test_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
+            test_pred = test_data[[]].reset_index()
+            test_pred['score'] = y
+            test_pred.columns = ['user_id', 'job_id', 'score']
+            score[para].append(my_score(test_true, test_pred))
+        print '%s is %f, mean score is %f' % (cv_name, para, np.mean(score['para']))
+        print para
+        print np.mean(score['para'])
+
+
+
+
+
 
 
 if __name__ == "__main__":
@@ -211,7 +282,7 @@ if __name__ == "__main__":
     raw_action_dtype = {'browsed': np.int16, 'delivered': np.int16, 'satisfied': np.int16,}
     raw_action = pd.read_csv(data_path + 'table3_action', delimiter='\t', error_bad_lines=False, dtype=raw_action_dtype)
     #load test_user
-    test_user_dtype = {'live_city_id': np.int16, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
+    test_user_dtype = {'live_city_id': object, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
                        'start_work_date': object}
     test_user = pd.read_csv(data_path + "user_ToBePredicted", delimiter="\t", error_bad_lines=False, dtype=test_user_dtype)
     #load test_action
@@ -220,7 +291,16 @@ if __name__ == "__main__":
     #======Data Preprocess======
     user = clean_user(raw_user)
     job = clean_job(raw_job)
-    action = a
+    action = train_action_generate(raw_action)
+    action_feats = feats_generate(action, user, job)
+
+    pred_user = clean_user(test_user)
+    pred_job = job.copy()
+    pred_action = test_action_generate(test_action)
+    pred_action_feats = feats_generate(pred_action, pred_user, pred_job)
+
+
+
 
     y = action_feats[['y']].values
     x = action_feats.drop(columns=['y', 'delivered', 'satisfied']).values
