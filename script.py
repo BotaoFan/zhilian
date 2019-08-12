@@ -13,7 +13,8 @@ import warnings
 import re
 from sklearn.model_selection import GridSearchCV
 import os
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+import jieba
+#os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 warnings.filterwarnings('ignore')
 
 salary_dict = {'0000000000': np.nan, '0000001000': 1, '0100002000': 2, '0200104000': 3, '0400106000': 4,
@@ -51,9 +52,21 @@ def show_data_info_in_table(data):
     print '</table>'
 
 
-def split_str(x, sep='/'):
-    return x if pd.isna(x) else set(x.split(sep))
+def split_str(x, pattern = [',', ' ', '，', ')', '）', '(', '（', '|'], sep='/'):
+    if pd.isna(x):
+        return x
+    else:
+        for p in pattern:
+            x = x.replace(p, sep)
+        return set(x.split(sep))
 
+
+def del_key(x, keys):
+    if pd.isna(x):
+        return x
+    for k in keys:
+        x = x.replace(k, '')
+    return x
 
 
 def explory_cate_data(data, col_name, show_min_count=10):
@@ -70,6 +83,7 @@ def explory_cate_data(data, col_name, show_min_count=10):
     cate_count.sort_values('count', ascending=False, inplace=True)
     print cate_count[cate_count['count'] >= show_min_count]
     return cate_count
+
 
 #======Data clean========
 def clean_user(raw_user):
@@ -89,13 +103,16 @@ def clean_user(raw_user):
     user['cur_salary_id'] = user['cur_salary_id'].apply(lambda x: salary_dict[x])
     user['cur_degree_id'] = user['cur_degree_id'].apply(lambda x: np.nan if pd.isna(x) else degress_dict[x.strip()])
     user['start_work_date'] = user['start_work_date'].apply(lambda x: np.nan if x == '-' else int(x))
-    user['experience_set'] = user['experience'].apply(split_str, **{'sep': '|'})
+    keys = ['自我评价|', '操作|', '实习|', '申请|', '资金|', '政策|', '知识|', '大型|', '发布|', '变更|', '传达|', '发光|', '方法论|']
+    user['experience_drop_keys'] = user['experience'].apply(del_key, **{'keys': keys})
+    user['experience_set'] = user['experience_drop_keys'].apply(split_str, **{'pattern': [], 'sep': '|'})
     return user
 
 
 def clean_job(raw_job):
     job = raw_job.copy()
-    job['jd_title_set'] = job['jd_title'].apply(split_str)
+    job['jd_title_list'] = job['jd_title'].apply(jieba.lcut)
+    job['jd_title_set'] = job['jd_title_list'].apply(lambda x: set(x))
     job.drop(columns=['company_name'], inplace=True)
     job['jd_sub_type_set'] = job['jd_sub_type'].apply(split_str)
     date_nan = '18000101'
@@ -150,47 +167,57 @@ def feats_generate(action, user, job):
     #Features Generate
     big_city_dict = defaultdict(lambda: 0)
     big_city_dict['530'] = 1; big_city_dict['801'] = 1; big_city_dict['538'] = 1; big_city_dict['719'] = 1; big_city_dict['854'] = 1
-    action_feats['feat1_live_city_is_big'] = action['live_city_id'].apply(lambda x: big_city_dict[x])
-    action_feats['feat2_live_city_desire_0'] = (action['live_city_id'] == action['desire_jd_city_id_0'])*1
-    action_feats['feat3_live_city_desire_1'] = (action['live_city_id'] == action['desire_jd_city_id_1'])*1
-    action_feats['feat4_live_city_desire_2'] = (action['live_city_id'] == action['desire_jd_city_id_2'])*1
-    action_feats['feat5_live_ctiy_desire'] = ((action_feats['feat2_live_city_desire_0'] + \
-                                             action_feats['feat3_live_city_desire_1'] + \
-                                             action_feats['feat4_live_city_desire_2']) >= 1)*1
+    action_feats['feat_live_city_is_big'] = action['live_city_id'].apply(lambda x: big_city_dict[x])
+    action_feats['feat_live_city_desire_0'] = (action['live_city_id'] == action['desire_jd_city_id_0'])*1
+    action_feats['feat_live_city_desire_1'] = (action['live_city_id'] == action['desire_jd_city_id_1'])*1
+    action_feats['feat_live_city_desire_2'] = (action['live_city_id'] == action['desire_jd_city_id_2'])*1
+    action_feats['feat_live_ctiy_desire'] = ((action_feats['feat_live_city_desire_0'] + \
+                                             action_feats['feat_live_city_desire_1'] + \
+                                             action_feats['feat_live_city_desire_2']) >= 1)*1
 
-    action_feats['feat6_city_live_job'] = (action['live_city_id'] == action['city'])*1
-    action_feats['feat7_job_city_desire_0'] = (action['city'] == action['desire_jd_city_id_0'])*1
-    action_feats['feat8_job_city_desire_1'] = (action['city'] == action['desire_jd_city_id_1'])*1
-    action_feats['feat9_job_city_desire_2'] = (action['city'] == action['desire_jd_city_id_2'])*1
-    action_feats['feat10_job_ctiy_desire'] = ((action_feats['feat7_job_city_desire_0'] + \
-                                             action_feats['feat8_job_city_desire_1'] + \
-                                             action_feats['feat9_job_city_desire_2']) >= 1)*1
-    action_feats['feat11_desire_cur_indu_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['cur_industry_set'])).apply(find_len_set)
-    action_feats['feat12_desire_cur_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['cur_jd_type_set'])).apply(find_len_set)
-    action_feats['feat13_desire_job_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
-    action_feats['feat14_desire_indu_job_key_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['key_set'])).apply(find_len_set)
-    action_feats['feat15_desire_type_job_key_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['key_set'])).apply(find_len_set)
+    action_feats['feat_city_live_job'] = (action['live_city_id'] == action['city'])*1
+    action_feats['feat_job_city_desire_0'] = (action['city'] == action['desire_jd_city_id_0'])*1
+    action_feats['feat_job_city_desire_1'] = (action['city'] == action['desire_jd_city_id_1'])*1
+    action_feats['feat_job_city_desire_2'] = (action['city'] == action['desire_jd_city_id_2'])*1
+    action_feats['feat_job_ctiy_desire'] = ((action_feats['feat_job_city_desire_0'] + \
+                                             action_feats['feat_job_city_desire_1'] + \
+                                             action_feats['feat_job_city_desire_2']) >= 1)*1
+    action_feats['feat_desire_cur_indu_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['cur_industry_set'])).apply(find_len_set)
+    action_feats['feat_cur_desire_indu_ratio'] = action_feats['feat_desire_cur_indu_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_cur_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['cur_jd_type_set'])).apply(find_len_set)
+    action_feats['feat_cur_desire_type_len_ratio'] = action_feats['feat_desire_cur_type_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_job_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_desire_indu_job_key_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['key_set'])).apply(find_len_set)
+    action_feats['feat_desire_type_job_key_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['key_set'])).apply(find_len_set)
+    action_feats['feat_desire_indu_title_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_desire_indu_title_ratio'] = action_feats['feat_desire_indu_title_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_cur_indu_title_len'] = (action['cur_industry_set']-(action['cur_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_cur_indu_title_ratio'] = action_feats['feat_cur_indu_title_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_type_title_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_desire_type_title_ratio'] = action_feats['feat_desire_type_title_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_cur_type_title_len'] = (action['cur_jd_type_set']-(action['cur_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_cur_type_title_ratio'] = action_feats['feat_cur_type_title_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
 
-    action_feats['feat16_desire_cur_salary'] = action['desire_jd_salary_id'] - action['cur_salary_id']
-    action_feats['feat17_desire_job_max_salary'] = action['desire_jd_max_salary'] - action['max_salary']
-    action_feats['feat18_desire_job_min_salary'] = action['desire_jd_min_salary'] - action['min_salary']
-    action_feats['feat19_birthday'] = action['birthday']
-    action_feats['feat20_work_year'] = 2019 - action['start_work_date']
-    action_feats['feat21_start_date_duration'] = (datetime(2019, 9, 1) - action['start_date']).apply(lambda x: x.days)
-    action_feats['feat22_end_date_duration'] = (datetime(2019, 9, 1) - action['end_date']).apply(lambda x: x.days)
-    action_feats['feat23_end_start_date_duration'] = (action['end_date'] - action['start_date']).apply(lambda x: x.days)
-    action_feats['feat24_degree_min_edu'] = action['cur_degree_id'] - action['min_edu_level']
-    action_feats['feat25_degree'] = action['cur_degree_id']
-    action_feats['feat26_desire_jd_city_count'] = (action['desire_jd_city_id_0'] != '-')*1 +  \
+    action_feats['feat_desire_cur_salary'] = action['desire_jd_salary_id'] - action['cur_salary_id']
+    action_feats['feat_desire_job_max_salary'] = action['desire_jd_max_salary'] - action['max_salary']
+    action_feats['feat_desire_job_min_salary'] = action['desire_jd_min_salary'] - action['min_salary']
+    action_feats['feat_birthday'] = action['birthday']
+    action_feats['feat_work_year'] = 2019 - action['start_work_date']
+    action_feats['feat_start_date_duration'] = (datetime(2019, 9, 1) - action['start_date']).apply(lambda x: x.days)
+    action_feats['feat_end_date_duration'] = (datetime(2019, 9, 1) - action['end_date']).apply(lambda x: x.days)
+    action_feats['feat_end_start_date_duration'] = (action['end_date'] - action['start_date']).apply(lambda x: x.days)
+    action_feats['feat_degree_min_edu'] = action['cur_degree_id'] - action['min_edu_level']
+    action_feats['feat_degree'] = action['cur_degree_id']
+    action_feats['feat_desire_jd_city_count'] = (action['desire_jd_city_id_0'] != '-')*1 +  \
                                            (action['desire_jd_city_id_1'] != '-')*1 + \
                                            (action['desire_jd_city_id_2'] != '-')*1
-    action_feats['feat27_desire_jd_industry_count'] = action['desire_jd_industry_set'].apply(find_len_set)
-    action_feats['feat28_desire_jd_type_count'] = action['desire_jd_type_set'].apply(find_len_set)
-    action_feats['feat29_cur_salary_id'] = action['cur_salary_id']
-    action_feats['feat30_cur_industry_count'] = action['cur_industry_set'].apply(find_len_set)
-    action_feats['feat31_cur_jd_type_count'] = action['cur_jd_type_set'].apply(find_len_set)
-    action_feats['feat32_jd_sub_type_count'] = action['jd_sub_type'].apply(find_len_set)
-    action_feats['feat33_require_nums'] = action['require_nums']
+    action_feats['feat_desire_jd_industry_count'] = action['desire_jd_industry_set'].apply(find_len_set)
+    action_feats['feat_desire_jd_type_count'] = action['desire_jd_type_set'].apply(find_len_set)
+    action_feats['feat_cur_salary_id'] = action['cur_salary_id']
+    action_feats['feat_cur_industry_count'] = action['cur_industry_set'].apply(find_len_set)
+    action_feats['feat_cur_jd_type_count'] = action['cur_jd_type_set'].apply(find_len_set)
+    action_feats['feat_jd_sub_type_count'] = action['jd_sub_type'].apply(find_len_set)
+    action_feats['feat_require_nums'] = action['require_nums']
     return action_feats
 
 
@@ -267,10 +294,35 @@ def show_cv_result(gscv):
     print('最佳模型得分:{0}'.format(gscv.best_score_))
 
 
+def set_count(df):
+    df_dict = defaultdict(lambda: 0)
+    for df_set in df:
+        if pd.notna(df_set):
+            for content in df_set:
+                df_dict[content] = df_dict[content] + 1
+    df_pd = pd.DataFrame({'id': df_dict.keys(),  'count': df_dict.values()})
+    df_pd.sort_values('count',  ascending=False, inplace=True)
+    return set(df_pd['id']), df_pd
+
+
+def cal_key_grade(df, key_col_name, grade_col_name):
+    '''
+    :param df: df[key_col_name, grade_col_name]
+    :return: df
+    '''
+    df_dict = defaultdict(lambda: 0)
+    for i in range(df.shape[0]):
+        if pd.notna(df.iloc[i][key_col_name]):
+            for content in df.iloc[i][key_col_name]:
+                df_dict[content] = df_dict[content] + df.iloc[i][grade_col_name]
+    df_pd = pd.DataFrame({'key': df_dict.keys(),  'grade': df_dict.values()})
+    df_pd.sort_values('grade',  ascending=False, inplace=True)
+    return df_pd
+
 
 if __name__ == "__main__":
     set_format()
-    data_path = '/Users/fan/PycharmProjects/tianchi/zhilian/data/'
+    data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'
     #======Load Data======
     #load train_user
     raw_user_dtype = {'live_city_id': object, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
@@ -417,13 +469,33 @@ if __name__ == "__main__":
     test_pred['score'] = y_pred
     xgb_test_score['reg_alpha_2_reg_lambda_0.1'] = my_score(test_true, test_pred)#reg_alpha:2, reg_lambda:0, MAP:0.2228540359573349
 
+
+    #Training
     params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
               'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1,
               'scale_pos_weight': 1, 'silent': True}
     xgb_model = xgb.XGBRegressor(**params)
-    x = action_feats.drop(columns=['y', 'delivered', 'satisfied']).values
-    y = action_feats[['y']].values
-    xgb_model.fit(x, y)
+
+    train_x = action_feats.iloc[:400000, :].drop(columns=['y', 'delivered', 'satisfied']).values
+    train_y = action_feats.iloc[:400000, :][['y']].values
+    xgb_model.fit(train_x, train_y)
+    train_true = action_feats.iloc[:400000,:][['delivered', 'satisfied']].reset_index()
+    train_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
+    train_pred = action_feats.iloc[:400000, :][[]].reset_index()
+    train_pred['score'] = xgb_model.predict(train_x)
+    train_pred.columns = ['user_id', 'job_id', 'score']
+    print 'Score on Train set(about 400000 records) is %f' % my_score(train_true, train_pred)
+
+    test_x = action_feats.iloc[400000:, :].drop(columns=['y', 'delivered', 'satisfied']).values
+    test_true = action_feats.iloc[400000:, :][['delivered', 'satisfied']].reset_index()
+    test_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
+    test_pred = action_feats.iloc[400000:, :][[]].reset_index()
+    test_pred['score'] = xgb_model.predict(test_x)
+    test_pred.columns = ['user_id', 'job_id', 'score']
+    print 'Score on Test set(about 400000 records) is %f' % my_score(test_true, test_pred)
+
+
+
     pred_result = xgb_model.predict(pred_action_feats.values)
     result = pred_action_feats[[]].reset_index()
     result['score'] = pred_result
