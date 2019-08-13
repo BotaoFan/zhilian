@@ -14,9 +14,10 @@ import re
 from sklearn.model_selection import GridSearchCV
 import os
 import jieba
-#os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 warnings.filterwarnings('ignore')
 
+# ============== Dictionary  ==============
 salary_dict = {'0000000000': np.nan, '0000001000': 1, '0100002000': 2, '0200104000': 3, '0400106000': 4,
                '0600108000': 5, '0800110000': 6, '1000115000': 7, '1500120000': 8, '1500125000': 9, '2000130000': 10,
                '2500199999': 11, '2500135000': 11, '3000150000': 12, '3500150000': 12, '5000170000': 13,
@@ -38,6 +39,7 @@ degress_dict = {'初中': 1, '中专': 2, '中技': 2, '高中': 2, '大专': 3,
 job_min_year_dict = {-1: 0, 103: 1, 305: 3, 510: 5, 1099: 10, 1: 1, 0: 0, 399: 3, 599: 5, 299: 2, 199: 1, 110: 1}
 
 
+# ============== Tools ==============
 def set_format():
     pd.set_option('display.max_columns', 1000)
     pd.set_option('display.width', 1000)
@@ -85,7 +87,34 @@ def explory_cate_data(data, col_name, show_min_count=10):
     return cate_count
 
 
-#======Data clean========
+# ============== Clean and Features Generate  ==============
+# ======Data Loading========
+def load_raw_data(data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'):
+    # load train_user
+    raw_user_dtype = {'live_city_id': object, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
+                      'start_work_date': object, }
+
+    raw_user = pd.read_csv(data_path + 'table1_user', delimiter='\t', error_bad_lines=False, dtype=raw_user_dtype)
+    # load train_job
+    raw_job_dtype = {'city': object, 'require_nums': np.int16, 'max_salary': np.int32, 'min_salary': np.int32,
+                     'start_date': object, 'end_date': object, 'raw_job': np.int16, 'is_travel': np.int16,
+                     'min_years': np.int16, }
+    raw_job = pd.read_csv(data_path + 'table2_jd', delimiter='\t', error_bad_lines=False, dtype=raw_job_dtype)
+    # load train_action
+    raw_action_dtype = {'browsed': np.int16, 'delivered': np.int16, 'satisfied': np.int16,}
+    raw_action = pd.read_csv(data_path + 'table3_action', delimiter='\t', error_bad_lines=False, dtype=raw_action_dtype)
+    # load test_user
+    test_user_dtype = {'live_city_id': object, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
+                       'start_work_date': object}
+    test_user = pd.read_csv(data_path + "user_ToBePredicted", delimiter="\t", error_bad_lines=False, dtype=test_user_dtype)
+    # load test_action
+    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723", delim_whitespace=True)
+    user_action = raw_action.groupby(['user_id', 'jd_no'])['delivered', 'satisfied'].max().reset_index()
+    return raw_user, raw_job, raw_action, test_user, test_action
+
+
+
+# ======Data Clean========
 def clean_user(raw_user):
     user = raw_user.copy()
     user.set_index('user_id', inplace=True)
@@ -109,7 +138,7 @@ def clean_user(raw_user):
     return user
 
 
-def clean_job(raw_job):
+def clean_job(raw_job, raw_action):
     job = raw_job.copy()
     job['jd_title_list'] = job['jd_title'].apply(jieba.lcut)
     job['jd_title_set'] = job['jd_title_list'].apply(lambda x: set(x))
@@ -128,6 +157,9 @@ def clean_job(raw_job):
     job['key_set'] = job['key'].apply(split_str, **{'sep': '|'})
     job['min_edu_level'] = job['min_edu_level'].apply(lambda x: np.nan if pd.isna(x) else degress_dict[x.strip()])
     job.drop(columns=['max_edu_level', 'is_mangerial', 'resume_language_required'], inplace=True)
+    jd_no_count = raw_action.groupby('jd_no')[['browsed', 'delivered']].sum()
+    jd_no_count.columns = ['browsed_count', 'delivered_count']
+    job = pd.merge(job, jd_no_count, left_on='jd_no', right_index=True, how='left')
     job.set_index('jd_no', inplace=True)
     return job
 
@@ -156,6 +188,7 @@ def find_len_set(x):
     return l
 
 
+# ====== Features Generation ========
 def feats_generate(action, user, job):
     #Get Training Data
     action = pd.merge(action, user, left_index=True, right_index=True, how='left')
@@ -218,9 +251,12 @@ def feats_generate(action, user, job):
     action_feats['feat_cur_jd_type_count'] = action['cur_jd_type_set'].apply(find_len_set)
     action_feats['feat_jd_sub_type_count'] = action['jd_sub_type'].apply(find_len_set)
     action_feats['feat_require_nums'] = action['require_nums']
-    return action_feats
+    action_feats['feat_job_browsed_count'] = action['browsed_count']
+    action_feats['feat_job_delivered_count'] = action['delivered_count']
+    return action_feats, action
 
 
+# ============== Score and Importance of Features ==============
 def cal_one(arr):
     if np.sum(arr) == 0:
         raise ValueError('Data do not contain positive point!')
@@ -248,7 +284,7 @@ def my_score(test_true, test_pred):
     return score['score'].mean()
 
 
-def cv_test(model, other_paras, cv_name, cv_paras, data, kfold=4):
+def cv_test_hyper_params(model, other_paras, cv_name, cv_paras, data, kfold=4):
     '''
     :param model:
     :param cv_paras:
@@ -289,6 +325,41 @@ def cv_test(model, other_paras, cv_name, cv_paras, data, kfold=4):
     return score
 
 
+def cv_test_model(model, action_feats, kfold=4):
+    data_count = action_feats.shape[0]
+    fold_count = data_count / kfold
+    fold_dict, test_data_list, train_data_list, train_score, test_score = {}, [], [], [], []
+    for i in range(kfold):
+        fold_dict[i] = [i * fold_count, (i+1) * fold_count]
+    for i in range(kfold):
+        test_data = action_feats.iloc[fold_dict[i][0]:fold_dict[i][1], :].copy()
+        train_data = action_feats.drop(index=test_data.index).copy()
+        test_data_list.append(test_data)
+        train_data_list.append(train_data)
+    for i in range(kfold):
+        print '---%dth fold start---' % i
+        train_data = train_data_list[i]
+        test_data = test_data_list[i]
+        model.fit(train_data.drop(columns=['y', 'delivered', 'satisfied']).values, train_data['y'].values)
+
+        train_pred_y = model.predict(train_data.drop(columns=['y', 'delivered', 'satisfied']).values)
+        train_true = train_data[['delivered', 'satisfied']].reset_index()
+        train_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
+        train_pred = train_data[[]].reset_index()
+        train_pred['y'] = train_pred_y
+        train_pred.columns = ['user_id', 'job_id', 'score']
+        train_score.append(my_score(train_true, train_pred))
+
+        y = model.predict(test_data.drop(columns=['y', 'delivered', 'satisfied']).values)
+        test_true = test_data[['delivered', 'satisfied']].reset_index()
+        test_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
+        test_pred = test_data[[]].reset_index()
+        test_pred['score'] = y
+        test_pred.columns = ['user_id', 'job_id', 'score']
+        test_score.append(my_score(test_true, test_pred))
+    return train_score, test_score
+
+
 def show_cv_result(gscv):
     print('参数的最佳取值：{0}'.format(gscv.best_params_))
     print('最佳模型得分:{0}'.format(gscv.best_score_))
@@ -323,202 +394,63 @@ def cal_key_grade(df, key_col_name, grade_col_name):
 if __name__ == "__main__":
     set_format()
     data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'
-    #======Load Data======
-    #load train_user
-    raw_user_dtype = {'live_city_id': object, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
-                      'start_work_date': object, }
-
-    raw_user = pd.read_csv(data_path + 'table1_user', delimiter='\t', error_bad_lines=False, dtype=raw_user_dtype)
-    #load train_job
-    raw_job_dtype = {'city': object, 'require_nums': np.int16, 'max_salary': np.int32, 'min_salary': np.int32,
-                     'start_date': object, 'end_date': object, 'raw_job': np.int16, 'is_travel': np.int16,
-                     'min_years': np.int16, }
-    raw_job = pd.read_csv(data_path + 'table2_jd', delimiter='\t', error_bad_lines=False, dtype=raw_job_dtype)
-    #load train_action
-    raw_action_dtype = {'browsed': np.int16, 'delivered': np.int16, 'satisfied': np.int16,}
-    raw_action = pd.read_csv(data_path + 'table3_action', delimiter='\t', error_bad_lines=False, dtype=raw_action_dtype)
-    #load test_user
-    test_user_dtype = {'live_city_id': object, 'desire_jd_salary_id': object, 'cur_salary_id': object, 'birthday': np.int16,
-                       'start_work_date': object}
-    test_user = pd.read_csv(data_path + "user_ToBePredicted", delimiter="\t", error_bad_lines=False, dtype=test_user_dtype)
-    #load test_action
-    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723", delim_whitespace=True)
-    user_action = raw_action.groupby(['user_id', 'jd_no'])['delivered', 'satisfied'].max().reset_index()
-    #======Data Preprocess======
+    # ======Load Data======
+    raw_user, raw_job, raw_action, test_user, test_action = load_raw_data(data_path)
+    # ======Data Preprocess======
     user = clean_user(raw_user)
-    job = clean_job(raw_job)
+    job = clean_job(raw_job, raw_action)
     action = train_action_generate(raw_action)
-    action_feats = feats_generate(action, user, job)
-
+    action_feats, action = feats_generate(action, user, job)
     pred_user = clean_user(test_user)
-    pred_job = job.copy()
+    pred_job = job
     pred_action = test_action_generate(test_action)
-    pred_action_feats = feats_generate(pred_action, pred_user, pred_job)
+    pred_action_feats, pred_action = feats_generate(pred_action, pred_user, pred_job)
 
+    # ====== CV Model ======
+    params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
+              'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0,
+              'reg_lambda': 1,
+              'scale_pos_weight': 1, 'silent': True}
+    xgb_model = xgb.XGBRegressor(**params)
+    train_score, test_score = cv_test_model(xgb_model, action_feats, kfold=4)
 
-
-
-    y = action_feats[['y']].values
+    # ====== Training Data and Predict ======
+    params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
+              'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0,
+              'reg_lambda': 1,
+              'scale_pos_weight': 1, 'silent': True}
+    xgb_model = xgb.XGBRegressor(**params)
     x = action_feats.drop(columns=['y', 'delivered', 'satisfied']).values
-
-    model = xgb.XGBRegressor()
-    model.fit(x, y)
-    result = action_feats[['feat20_work_year']]
-    test_y = model.predict(action_feats.values)
-    result['y'] = test_y
-    result.reset_index(inplace=True)
+    y = action_feats[['y']].values
+    xgb_model.fit(x, y)
+    pred_x = pred_action_feats.values
+    pred_y = xgb_model.predict(pred_x)
+    result = pred_action_feats[[]].reset_index()
+    result['y'] = pred_y
     result.sort_values(['user_id', 'y'], ascending=False, inplace=True)
-    del result['y']
+    result.drop(columns=['y'], inplace=True)
     result.to_csv(data_path + 'result.csv')
 
-    #============Tuning xgboost============
-    train_ratio = 0.8
-    action_feats_num = action_feats.shape[0]
-    train_num = int(train_ratio * action_feats_num)
-    train_x = action_feats.iloc[:train_num, :].drop(columns=['y', 'delivered', 'satisfied']).values
-    train_y = action_feats.iloc[:train_num, :][['y']].values
-    test_x = action_feats.iloc[train_num:, :].drop(columns=['y', 'delivered', 'satisfied']).values
-    test_true = action_feats.iloc[train_num:, :][['delivered', 'satisfied']].reset_index()
-    test_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
-    test_pred = action_feats.iloc[train_num:, :][[]].reset_index()
-    test_pred.columns = ['user_id', 'job_id']
-    xgb_test_score = {}
-
-
-    #Get MAP score without any tuning
-    xgb_model = xgb.XGBRegressor()
-    xgb_model.fit(train_x, train_y)
-    y_pred = xgb_model.predict(test_x)
-    '''
-    paras:
-    (base_score=0.5, booster='gbtree', colsample_bylevel=1,
-       colsample_bytree=1, gamma=0, learning_rate=0.1, max_delta_step=0,
-       max_depth=3, min_child_weight=1, missing=None, n_estimators=100,
-       n_jobs=1, nthread=None, objective='reg:linear', random_state=0,
-       reg_alpha=0, reg_lambda=1, scale_pos_weight=1, seed=None,
-       silent=True, subsample=1)
-    '''
-    test_pred['score'] = y_pred
-    xgb_test_score_no_tuning = my_score(test_true, test_pred)#MAP:0.21886006721219667
-    #Tuning n_estimators
-    params = {'subsample': 1,'colsample_bytree': 1, 'gamma': 0, 'learning_rate': 0.1, 'max_depth': 3,
-              'min_child_weight': 1, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1,
-              'scale_pos_weight': 1, 'silent': True}
-    cv_params = {'n_estimators': [50, 75, 100, 150, 200]}
-    xgb_model = xgb.XGBRegressor(**params)
-    gscv = GridSearchCV(estimator=xgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=4,
-                        verbose=1, n_jobs=4)
-    gscv.fit(train_x, train_y)
-    show_cv_result(gscv)
-    y_pred = gscv.predict(test_x)
-    test_pred['score'] = y_pred
-    xgb_test_score['n_estimator_100'] = my_score(test_true, test_pred) # n_estimator = 100, MAP: 0.21886006721219667
-
-    #Tuning min_child_weight and max_depth
-    params = {'subsample': 1,'colsample_bytree': 1, 'gamma': 0, 'learning_rate': 0.1, 'max_depth': 3,
-              'min_child_weight': 1, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1,
-              'scale_pos_weight': 1, 'silent': True}
-    cv_params = {'max_depth': [2, 3, 4, 6], 'min_child_weight': [1, 2, 3, 4]}
-    xgb_model = xgb.XGBRegressor(**params)
-    gscv = GridSearchCV(estimator=xgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=4,
-                        verbose=1, n_jobs=4)
-    gscv.fit(train_x, train_y)
-    show_cv_result(gscv)
-    y_pred = gscv.predict(test_x)
-    test_pred['score'] = y_pred
-    xgb_test_score['max_depth_4_min_child_weight_4'] = my_score(test_true, test_pred)#max_depth:4, min_child_weight:4 , MAP:0.22011659413590243
-
-    #Tuning gamma
-    params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0, 'learning_rate': 0.1, 'max_depth': 4,
-              'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1,
-              'scale_pos_weight': 1, 'silent': True}
-    cv_params = {'gamma': [0.1, 0.3, 0.5, 0.7]}
-    xgb_model = xgb.XGBRegressor(**params)
-    gscv = GridSearchCV(estimator=xgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=4,
-                        verbose=1, n_jobs=4)
-    gscv.fit(train_x, train_y)
-    show_cv_result(gscv)
-    y_pred = gscv.predict(test_x)
-    test_pred['score'] = y_pred
-    xgb_test_score['gamma_0.7'] = my_score(test_true, test_pred)#gamma:0.7, MAP:0.2228540359573349
-
-    #Tuning subsample and colsample_bytree:
-    params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
-              'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1,
-              'scale_pos_weight': 1, 'silent': True,}
-    cv_params = {'subsample': [0.6, 0.7, 0.8, 0.9], 'colsample_bytree': [0.6, 0.7, 0.8, 0.9]}
-    xgb_model = xgb.XGBRegressor(**params)
-    gscv = GridSearchCV(estimator=xgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=4,
-                        verbose=1, n_jobs=4)
-    gscv.fit(train_x, train_y)
-    show_cv_result(gscv)
-    y_pred = gscv.predict(test_x)
-    test_pred['score'] = y_pred
-    xgb_test_score['subsample_0.7_colsample_bytree_0.6'] = my_score(test_true, test_pred)#subsample:0.7_colsample_bytree:0.6, MAP:0.2228540359573349
-    # Tuning subsample and colsample_bytree:
-    params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
-              'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1,
-              'scale_pos_weight': 1, 'silent': True}
-    cv_params = {'reg_alpha': [0, 0.1, 1, 2], 'reg_lambda': [0, 0.1, 1, 2]}
-    xgb_model = xgb.XGBRegressor(**params)
-    gscv = GridSearchCV(estimator=xgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=4,
-                        verbose=1, n_jobs=4)
-    gscv.fit(train_x, train_y)
-    show_cv_result(gscv)
-    y_pred = gscv.predict(test_x)
-    test_pred['score'] = y_pred
-    xgb_test_score['reg_alpha_2_reg_lambda_0.1'] = my_score(test_true, test_pred)#reg_alpha:2, reg_lambda:0, MAP:0.2228540359573349
-
-
-    #Training
-    params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
-              'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1,
-              'scale_pos_weight': 1, 'silent': True}
-    xgb_model = xgb.XGBRegressor(**params)
-
-    train_x = action_feats.iloc[:400000, :].drop(columns=['y', 'delivered', 'satisfied']).values
-    train_y = action_feats.iloc[:400000, :][['y']].values
-    xgb_model.fit(train_x, train_y)
-    train_true = action_feats.iloc[:400000,:][['delivered', 'satisfied']].reset_index()
-    train_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
-    train_pred = action_feats.iloc[:400000, :][[]].reset_index()
-    train_pred['score'] = xgb_model.predict(train_x)
-    train_pred.columns = ['user_id', 'job_id', 'score']
-    print 'Score on Train set(about 400000 records) is %f' % my_score(train_true, train_pred)
-
-    test_x = action_feats.iloc[400000:, :].drop(columns=['y', 'delivered', 'satisfied']).values
-    test_true = action_feats.iloc[400000:, :][['delivered', 'satisfied']].reset_index()
-    test_true.columns = ['user_id', 'job_id', 'delivered', 'satisfied']
-    test_pred = action_feats.iloc[400000:, :][[]].reset_index()
-    test_pred['score'] = xgb_model.predict(test_x)
-    test_pred.columns = ['user_id', 'job_id', 'score']
-    print 'Score on Test set(about 400000 records) is %f' % my_score(test_true, test_pred)
 
 
 
-    pred_result = xgb_model.predict(pred_action_feats.values)
-    result = pred_action_feats[[]].reset_index()
-    result['score'] = pred_result
-    result.sort_values(['user_id', 'score'], ascending=False, inplace=True)
 
 
 
-    #Tuning lightboost
-    lgb_params = {'boosting_type': 'gbdt',
-                'objective': 'regression',
-                'num_boost_round':100,
-                'metrics':'mse',
-                'learning_rate': 0.1,
-                'num_leaves': 50,
-                'max_depth': 6,
-                'subsample': 0.8,
-                'colsample_bytree': 0.8
-                }
-    cv_params = {'num_boost_round': [25, 50, 75, 100, 125]}
-    lgb_model = lgb.LGBMRegressor(**lgb_params)
-    gscv = GridSearchCV(estimator=lgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5,
-                            verbose=1, n_jobs=4)
-    gscv.fit(x, y)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
