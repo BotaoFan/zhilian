@@ -87,6 +87,27 @@ def explory_cate_data(data, col_name, show_min_count=10):
     return cate_count
 
 
+def set_score(df, set_name):
+    '''
+    :param df: df[set_name, delivered, satisfied]
+    :return:
+    '''
+    delivered_dict = defaultdict(lambda: 0)
+    satisfied_dict = defaultdict(lambda: 0)
+    df['delivered_satisfied_sum'] = df['delivered'] + df['satisfied']
+    df_nonzero = df.loc[df['delivered_satisfied_sum'] > 0, :]
+    for i in range(df_nonzero.shape[0]):
+        df_set = df_nonzero.iloc[i][set_name]
+        if pd.notna(df_set):
+            for content in df_set:
+                delivered_dict[content] = delivered_dict[content] + df_nonzero.iloc[i]['delivered']
+                satisfied_dict[content] = satisfied_dict[content] + df_nonzero.iloc[i]['satisfied']
+
+    delivered_df = pd.DataFrame({'id': delivered_dict.keys(),  'score': delivered_dict.values()})
+    satisfied_df = pd.DataFrame({'id': satisfied_dict.keys(),  'score': satisfied_dict.values()})
+    return delivered_df, satisfied_df
+
+
 # ============== Clean and Features Generate  ==============
 # ======Data Loading========
 def load_raw_data(data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'):
@@ -161,6 +182,7 @@ def clean_job(raw_job, raw_action):
     jd_no_count.columns = ['browsed_count', 'delivered_count']
     job = pd.merge(job, jd_no_count, left_on='jd_no', right_index=True, how='left')
     job.set_index('jd_no', inplace=True)
+    job['job_description_set'] = job['job_description'].apply(lambda x: set(jieba.lcut(x, cut_all=True)))
     return job
 
 
@@ -363,17 +385,6 @@ def cv_test_model(model, action_feats, kfold=4):
 def show_cv_result(gscv):
     print('参数的最佳取值：{0}'.format(gscv.best_params_))
     print('最佳模型得分:{0}'.format(gscv.best_score_))
-
-
-def set_count(df):
-    df_dict = defaultdict(lambda: 0)
-    for df_set in df:
-        if pd.notna(df_set):
-            for content in df_set:
-                df_dict[content] = df_dict[content] + 1
-    df_pd = pd.DataFrame({'id': df_dict.keys(),  'count': df_dict.values()})
-    df_pd.sort_values('count',  ascending=False, inplace=True)
-    return set(df_pd['id']), df_pd
 
 
 def cal_key_grade(df, key_col_name, grade_col_name):

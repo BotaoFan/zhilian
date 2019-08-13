@@ -56,4 +56,4 @@ def execute():
         p.join()
 
 if __name__ == '__main__':
-    pr(1)
+    pass
