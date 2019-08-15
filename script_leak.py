@@ -1,4 +1,7 @@
 #-*- coding:utf-8 -*-
+# @Time : 2019/8/14
+# @Author : Botao Fan
+#-*- coding:utf-8 -*-
 # @Time : 2019/8/5
 # @Author : Botao Fan
 import pandas as pd
@@ -54,7 +57,7 @@ def show_data_info_in_table(data):
     print '</table>'
 
 
-def split_str(x, pattern = [',', ' ', '，', ')', '）', '(', '（', '|'], sep='/'):
+def split_str(x, pattern=[',', ' ', '，', ')', '）', '(', '（', '|'], sep='/'):
     if pd.isna(x):
         return x
     else:
@@ -178,9 +181,9 @@ def clean_job(raw_job, raw_action):
     job['key_set'] = job['key'].apply(split_str, **{'sep': '|'})
     job['min_edu_level'] = job['min_edu_level'].apply(lambda x: np.nan if pd.isna(x) else degress_dict[x.strip()])
     job.drop(columns=['max_edu_level', 'is_mangerial', 'resume_language_required'], inplace=True)
-    jd_no_count = raw_action.groupby('jd_no')[['browsed', 'delivered']].sum()
-    jd_no_count.columns = ['browsed_count', 'delivered_count']
-    job = pd.merge(job, jd_no_count, left_on='jd_no', right_index=True, how='left')
+    #jd_no_count = raw_action.groupby('jd_no')[['browsed', 'delivered']].sum()
+    #jd_no_count.columns = ['browsed_count', 'delivered_count']
+    #job = pd.merge(job, jd_no_count, left_on='jd_no', right_index=True, how='left')
     job.set_index('jd_no', inplace=True)
     #job['job_description_set'] = job['job_description'].apply(lambda x: set(jieba.lcut(x, cut_all=True)))
     return job
@@ -211,7 +214,11 @@ def find_len_set(x):
 
 
 # ====== Features Generation ========
-def feats_generate(action, user, job):
+def feats_generate(raw_action, user, job, is_train=True):
+    if is_train:
+        action = train_action_generate(raw_action)
+    else:
+        action = test_action_generate(raw_action)
     #Get Training Data
     action = pd.merge(action, user, left_index=True, right_index=True, how='left')
     action = pd.merge(action, job, left_index=True, right_index=True, how='left')
@@ -273,15 +280,17 @@ def feats_generate(action, user, job):
     action_feats['feat_cur_jd_type_count'] = action['cur_jd_type_set'].apply(find_len_set)
     action_feats['feat_jd_sub_type_count'] = action['jd_sub_type'].apply(find_len_set)
     action_feats['feat_require_nums'] = action['require_nums']
-    action_feats['feat_job_browsed_count'] = action['browsed_count']
-    #action_feats['feat_job_delivered_count'] = action['delivered_count']
-    return action_feats, action
+    jd_no_count = raw_action.groupby('jd_no')[['browsed']].sum()
+    jd_no_count.columns = ['feat_browsed_count']
+    action_feats = pd.merge(action_feats, jd_no_count, left_index=True, right_index=True, how='left')
+    return action_feats
 
 
 # ============== Score and Importance of Features ==============
 def cal_one(arr):
     if np.sum(arr) == 0:
-        raise ValueError('Data do not contain positive point!')
+        #raise ValueError('Data do not contain positive point!')
+        return 0
     arr = np.array(arr)
     arr_cumsum = np.cumsum(arr)
     arr_pos = np.arange(len(arr)) + 1
@@ -347,21 +356,23 @@ def cv_test_hyper_params(model, other_paras, cv_name, cv_paras, data, kfold=4):
     return score
 
 
-def cv_test_model(model, action_feats, kfold=4):
-    data_count = action_feats.shape[0]
+def cv_test_model(model, user, job, raw_action, kfold=4):
+    data_count = raw_action.shape[0]
     fold_count = data_count / kfold
     fold_dict, test_data_list, train_data_list, train_score, test_score = {}, [], [], [], []
     for i in range(kfold):
         fold_dict[i] = [i * fold_count, (i+1) * fold_count]
     for i in range(kfold):
-        test_data = action_feats.iloc[fold_dict[i][0]:fold_dict[i][1], :].copy()
-        train_data = action_feats.drop(index=test_data.index).copy()
+        test_data = raw_action.iloc[fold_dict[i][0]:fold_dict[i][1], :].copy()
+        train_data = raw_action.drop(index=test_data.index).copy()
         test_data_list.append(test_data)
         train_data_list.append(train_data)
     for i in range(kfold):
         print '---%dth fold start---' % i
-        train_data = train_data_list[i]
-        test_data = test_data_list[i]
+        train_data_raw = train_data_list[i]
+        test_data_raw = test_data_list[i]
+        train_data = feats_generate(train_data_raw, user, job, is_train=True)
+        test_data = feats_generate(test_data_raw, user, job,  is_train=True)
         model.fit(train_data.drop(columns=['y', 'delivered', 'satisfied']).values, train_data['y'].values)
 
         train_pred_y = model.predict(train_data.drop(columns=['y', 'delivered', 'satisfied']).values)
@@ -379,6 +390,8 @@ def cv_test_model(model, action_feats, kfold=4):
         test_pred['score'] = y
         test_pred.columns = ['user_id', 'job_id', 'score']
         test_score.append(my_score(test_true, test_pred))
+        print train_score[-1]
+        print test_score[-1]
     return train_score, test_score
 
 
@@ -423,7 +436,7 @@ if __name__ == "__main__":
               'reg_lambda': 1,
               'scale_pos_weight': 1, 'silent': True}
     xgb_model = xgb.XGBRegressor(**params)
-    train_score, test_score = cv_test_model(xgb_model, action_feats, kfold=4)
+    train_score, test_score = cv_test_model(xgb_model, user, job, raw_action, kfold=4)
 
     # ====== Training Data and Predict ======
     params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
