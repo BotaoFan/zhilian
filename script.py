@@ -273,7 +273,7 @@ def feats_generate(action, user, job):
     action_feats['feat_cur_jd_type_count'] = action['cur_jd_type_set'].apply(find_len_set)
     action_feats['feat_jd_sub_type_count'] = action['jd_sub_type'].apply(find_len_set)
     action_feats['feat_require_nums'] = action['require_nums']
-    action_feats['feat_job_browsed_count'] = action['browsed_count']
+    #action_feats['feat_job_browsed_count'] = action['browsed_count']
     #action_feats['feat_job_delivered_count'] = action['delivered_count']
     return action_feats, action
 
@@ -404,7 +404,7 @@ def cal_key_grade(df, key_col_name, grade_col_name):
 
 if __name__ == "__main__":
     set_format()
-    data_path = '/Users/fan/PycharmProjects/tianchi/zhilian/data/'
+    data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'
     # ======Load Data======
     raw_user, raw_job, raw_action, test_user, test_action = load_raw_data(data_path)
     # ======Data Preprocess======
@@ -423,7 +423,7 @@ if __name__ == "__main__":
               'reg_lambda': 1,
               'scale_pos_weight': 1, 'silent': True}
     xgb_model = xgb.XGBRegressor(**params)
-    train_score, test_score = cv_test_model(xgb_model, action_feats, kfold=4)
+    xgb_train_score, xgb_test_score = cv_test_model(xgb_model, action_feats, kfold=4)
 
     # ====== Training Data and Predict ======
     params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,

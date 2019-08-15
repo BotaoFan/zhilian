@@ -103,18 +103,84 @@ xgb_test_score['reg_alpha_2_reg_lambda_0.1'] = my_score(test_true,
                                                         test_pred)  # reg_alpha:2, reg_lambda:0, MAP:0.2228540359573349
 
 # ============Tuning LightGBM============
-lgb_params = {'boosting_type': 'gbdt',
-              'objective': 'regression',
-              'num_boost_round': 100,
-              'metrics': 'mse',
-              'learning_rate': 0.1,
-              'num_leaves': 50,
-              'max_depth': 6,
-              'subsample': 0.8,
-              'colsample_bytree': 0.8
-              }
+lgb_test_score = {}
+# Tuning num_boost_round
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 100, 'learning_rate': 0.1, 'num_leaves': 50, 'max_depth': 6, 'subsample': 0.8,
+              'colsample_bytree': 0.8}
 cv_params = {'num_boost_round': [25, 50, 75, 100, 125]}
 lgb_model = lgb.LGBMRegressor(**lgb_params)
 gscv = GridSearchCV(estimator=lgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5,
                     verbose=1, n_jobs=4)
-gscv.fit(x, y)
+gscv.fit(train_x, train_y)
+show_cv_result(gscv)
+y_pred = gscv.predict(test_x)
+test_pred['score'] = y_pred
+lgb_test_score['num_boost_round_50'] = my_score(test_true, test_pred)  # gamma:0.7, MAP:0.22295576013341234
+
+# Tuning max_depth and num_leaves
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 50, 'learning_rate': 0.1, 'num_leaves': 50, 'max_depth': 6, 'subsample': 0.8,
+              'colsample_bytree': 0.8}
+cv_params = {'max_depth': [3, 5, 7, 9], 'num_leaves': [8, 32, 128, 512]}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+gscv = GridSearchCV(estimator=lgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5,
+                    verbose=1, n_jobs=4)
+gscv.fit(train_x, train_y)
+show_cv_result(gscv)
+y_pred = gscv.predict(test_x)
+test_pred['score'] = y_pred
+lgb_test_score['max_depth_7_num_leaves_32'] = my_score(test_true, test_pred)  # MAP:0.22345826302411678
+
+# Tuning min_child_samples and min_child_weight
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 50, 'learning_rate': 0.1, 'num_leaves': 32, 'max_depth': 7, 'subsample': 0.8,
+              'colsample_bytree': 0.8}
+cv_params = {'min_child_samples': [16, 18, 20, 22], 'min_child_weight': [0.001, 0.002, 0.003]}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+gscv = GridSearchCV(estimator=lgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5,
+                    verbose=1, n_jobs=4)
+gscv.fit(train_x, train_y)
+show_cv_result(gscv)
+y_pred = gscv.predict(test_x)
+test_pred['score'] = y_pred
+lgb_test_score['min_child_samples_16_min_child_weight_0.001'] = my_score(test_true, test_pred)  #  MAP:0.22152546764910555
+
+# Tuning feature_fraction and bagging_fraction
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 50, 'learning_rate': 0.1, 'num_leaves': 32, 'max_depth': 7,
+              'min_child_samples': 16, 'min_child_weight': 0.001,
+              'feature_fraction': 0.8, 'bagging_fraction': 0.8, 'bagging_freq': 5}
+cv_params = {'feature_fraction': [0.6, 0.7, 0.8, 0.9], 'bagging_fraction': [0.6, 0.7, 0.8, 0.9]}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+gscv = GridSearchCV(estimator=lgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5,
+                    verbose=1, n_jobs=4)
+gscv.fit(train_x, train_y)
+show_cv_result(gscv)
+y_pred = gscv.predict(test_x)
+test_pred['score'] = y_pred
+lgb_test_score['feature_fraction_0.6_bagging_fraction_0.9'] = my_score(test_true, test_pred)  #  MAP:0.22348834147483604
+
+# Tuning reg_alpha and reg_lambda
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 50, 'learning_rate': 0.1, 'num_leaves': 32, 'max_depth': 7,
+              'min_child_samples': 16, 'min_child_weight': 0.001,
+              'feature_fraction': 0.6, 'bagging_fraction': 0.9, 'bagging_freq': 5}
+cv_params = {'reg_alpha': [0, 0.01, 0.03, 0.05], 'reg_lambda': [0, 0.1, 0.5, 1, 3]}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+gscv = GridSearchCV(estimator=lgb_model, param_grid=cv_params, scoring='neg_mean_squared_error', cv=5,
+                    verbose=1, n_jobs=4)
+gscv.fit(train_x, train_y)
+show_cv_result(gscv)
+y_pred = gscv.predict(test_x)
+test_pred['score'] = y_pred
+lgb_test_score['reg_alpha_0_reg_lambda_3'] = my_score(test_true, test_pred)  #  MAP:0.22348834147483604
+
+
+#Test
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 50, 'learning_rate': 0.1, 'num_leaves': 32, 'max_depth': 7,
+              'min_child_samples': 16, 'min_child_weight': 0.001, 'reg_alpha': 0, 'reg_lambda': 3,
+              'feature_fraction': 0.6, 'bagging_fraction': 0.9, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
