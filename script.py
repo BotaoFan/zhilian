@@ -162,7 +162,7 @@ def clean_user(raw_user):
 def clean_job(raw_job, raw_action):
     job = raw_job.copy()
     job['jd_title_list'] = job['jd_title'].apply(jieba.lcut)
-    job['jd_title_set'] = job['jd_title_list'].apply(lambda x: set(x))
+    job['jd_title_set'] = job['jd_title_list'].apply(lambda x: set([s for s in x if len(s) > 1]))
     job.drop(columns=['company_name'], inplace=True)
     job['jd_sub_type_set'] = job['jd_sub_type'].apply(split_str)
     date_nan = '18000101'
@@ -219,9 +219,10 @@ def feats_generate(action, user, job):
         action_feats = action[['y', 'delivered', 'satisfied']]
     else:
         action_feats = action[[]]
-    #Features Generate
+    # Features Generate
     big_city_dict = defaultdict(lambda: 0)
     big_city_dict['530'] = 1; big_city_dict['801'] = 1; big_city_dict['538'] = 1; big_city_dict['719'] = 1; big_city_dict['854'] = 1
+    # About City
     action_feats['feat_live_city_is_big'] = action['live_city_id'].apply(lambda x: big_city_dict[x])
     action_feats['feat_live_city_desire_0'] = (action['live_city_id'] == action['desire_jd_city_id_0'])*1
     action_feats['feat_live_city_desire_1'] = (action['live_city_id'] == action['desire_jd_city_id_1'])*1
@@ -237,21 +238,58 @@ def feats_generate(action, user, job):
     action_feats['feat_job_ctiy_desire'] = ((action_feats['feat_job_city_desire_0'] + \
                                              action_feats['feat_job_city_desire_1'] + \
                                              action_feats['feat_job_city_desire_2']) >= 1)*1
+    # About desire and current industry
+    action_feats['feat_desire_indu_len'] = action['desire_jd_industry_set'].apply(find_len_set)
+    action_feats['feat_cur_indu_len'] = action['cur_industry_set'].apply(find_len_set)
     action_feats['feat_desire_cur_indu_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['cur_industry_set'])).apply(find_len_set)
     action_feats['feat_cur_desire_indu_ratio'] = action_feats['feat_desire_cur_indu_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_cur_indu_ratio'] = action_feats['feat_desire_cur_indu_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
+
+    # About desire and current type
+    action_feats['feat_desire_jd_type_len'] = action['desire_jd_type_set'].apply(find_len_set)
+    action_feats['feat_cur_jd_type_len'] = action['cur_jd_type_set'].apply(find_len_set)
     action_feats['feat_desire_cur_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['cur_jd_type_set'])).apply(find_len_set)
     action_feats['feat_cur_desire_type_len_ratio'] = action_feats['feat_desire_cur_type_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_job_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_desire_cur_type_len_ratio'] = action_feats['feat_desire_cur_type_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
+
+    # About titles of job and user's desire industry and type
+    action_feats['feat_jd_title_len'] = action['jd_title_set'].apply(find_len_set)
+    action_feats['feat_desire_indu_title_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['jd_title_set'])).apply(find_len_set)
+    action_feats['feat_title_desire_indu_ratio'] = action_feats['feat_desire_indu_title_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_indu_title_ratio'] = action_feats['feat_desire_indu_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
+
+    action_feats['feat_cur_indu_title_len'] = (action['cur_industry_set']-(action['cur_industry_set']-action['jd_title_set'])).apply(find_len_set)
+    action_feats['feat_title_cur_indu_ratio'] = action_feats['feat_cur_indu_title_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_cur_indu_title_ratio'] = action_feats['feat_cur_indu_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
+
+    action_feats['feat_desire_type_title_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_title_set'])).apply(find_len_set)
+    action_feats['feat_title_desire_type_ratio'] = action_feats['feat_desire_type_title_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_type_title_ratio'] = action_feats['feat_desire_type_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
+
+    action_feats['feat_cur_type_title_len'] = (action['cur_jd_type_set']-(action['cur_jd_type_set']-action['jd_title_set'])).apply(find_len_set)
+    action_feats['feat_title_cur_type_ratio'] = action_feats['feat_cur_type_title_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_cur_type_title_ratio'] = action_feats['feat_cur_type_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
+
+    # About sub_type of job and user's desire industry and type
+    action_feats['feat_jd_sub_type_len'] = action['jd_sub_type_set'].apply(find_len_set)
+    action_feats['feat_desire_indu_job_type_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_job_type_desire_indu_ratio'] = action_feats['feat_desire_indu_job_type_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_indu_job_type_ratio'] = action_feats['feat_desire_indu_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
+
+    action_feats['feat_cur_indu_job_type_len'] = (action['cur_industry_set']-(action['cur_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_job_type_cur_indu_ratio'] = action_feats['feat_cur_indu_job_type_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_cur_indu_job_type_ratio'] = action_feats['feat_cur_indu_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
+
+    action_feats['feat_desire_type_job_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_job_type_desire_type_ratio'] = action_feats['feat_desire_type_job_type_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_desire_type_job_type_ratio'] = action_feats['feat_desire_type_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
+
+    action_feats['feat_cur_type_job_type_len'] = (action['cur_jd_type_set']-(action['cur_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
+    action_feats['feat_job_type_cur_type_ratio'] = action_feats['feat_cur_type_job_type_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
+    action_feats['feat_cur_type_job_type_ratio'] = action_feats['feat_cur_type_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
+
     action_feats['feat_desire_indu_job_key_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['key_set'])).apply(find_len_set)
     action_feats['feat_desire_type_job_key_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['key_set'])).apply(find_len_set)
-    action_feats['feat_desire_indu_title_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
-    action_feats['feat_desire_indu_title_ratio'] = action_feats['feat_desire_indu_title_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_cur_indu_title_len'] = (action['cur_industry_set']-(action['cur_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
-    action_feats['feat_cur_indu_title_ratio'] = action_feats['feat_cur_indu_title_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_type_title_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
-    action_feats['feat_desire_type_title_ratio'] = action_feats['feat_desire_type_title_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_cur_type_title_len'] = (action['cur_jd_type_set']-(action['cur_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
-    action_feats['feat_cur_type_title_ratio'] = action_feats['feat_cur_type_title_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
 
     action_feats['feat_desire_cur_salary'] = action['desire_jd_salary_id'] - action['cur_salary_id']
     action_feats['feat_desire_job_max_salary'] = action['desire_jd_max_salary'] - action['max_salary']
@@ -281,7 +319,8 @@ def feats_generate(action, user, job):
 # ============== Score and Importance of Features ==============
 def cal_one(arr):
     if np.sum(arr) == 0:
-        raise ValueError('Data do not contain positive point!')
+        #raise ValueError('Data do not contain positive point!')
+        return 0
     arr = np.array(arr)
     arr_cumsum = np.cumsum(arr)
     arr_pos = np.arange(len(arr)) + 1
@@ -387,11 +426,14 @@ def show_cv_result(gscv):
     print('最佳模型得分:{0}'.format(gscv.best_score_))
 
 
-def cal_key_grade(df, key_col_name, grade_col_name):
+def cal_key_grade(df, key_col_name, grade_col_name=None):
     '''
     :param df: df[key_col_name, grade_col_name]
     :return: df
     '''
+    if grade_col_name is None:
+        df['count'] = 1
+        grade_col_name = 'count'
     df_dict = defaultdict(lambda: 0)
     for i in range(df.shape[0]):
         if pd.notna(df.iloc[i][key_col_name]):
