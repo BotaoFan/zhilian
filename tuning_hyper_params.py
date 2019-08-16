@@ -204,6 +204,8 @@ test_pred['score'] = lgb_model.predict(test_x)
 test_pred.columns = ['user_id', 'job_id', 'score']
 print "Train MAP is %f" %(my_score(test_true, test_pred))
 
+
+#lightGBM params and online test map:0.232
 lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
               'num_boost_round': 150, 'learning_rate': 0.03, 'num_leaves': 128, 'max_depth': 9,
               'min_child_samples': 10, 'min_child_weight': 0.001, 'reg_alpha': 0, 'reg_lambda': 3,

@@ -446,7 +446,7 @@ def cal_key_grade(df, key_col_name, grade_col_name=None):
 
 if __name__ == "__main__":
     set_format()
-    data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'
+    data_path = '/Users/fan/PycharmProjects/tianchi/zhilian/data/'
     # ======Load Data======
     raw_user, raw_job, raw_action, test_user, test_action = load_raw_data(data_path)
     # ======Data Preprocess======
