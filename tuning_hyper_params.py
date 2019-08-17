@@ -1,7 +1,7 @@
 #-*- coding:utf-8 -*-
 # @Time : 2019/8/13
 # @Author : Botao Fan
-
+from time import time
 # ============Tuning XGBoost============
 train_ratio = 0.8
 action_feats_num = action_feats.shape[0]
@@ -102,7 +102,7 @@ test_pred['score'] = y_pred
 xgb_test_score['reg_alpha_2_reg_lambda_0.1'] = my_score(test_true,
                                                         test_pred)  # reg_alpha:2, reg_lambda:0, MAP:0.2228540359573349
 
-# ============Tuning LightGBM============
+# ============Tuning LightGBM（The way doesn't work well）============
 lgb_test_score = {}
 # Tuning num_boost_round
 lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
@@ -204,7 +204,132 @@ test_pred['score'] = lgb_model.predict(test_x)
 test_pred.columns = ['user_id', 'job_id', 'score']
 print "Train MAP is %f" %(my_score(test_true, test_pred))
 
+# ============Tuning LightGBM============
+# -----No.1-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'learning_rate': 0.002, 'n_estimators': 3000, 'num_leaves': 512, 'max_depth': 9,
+              'min_child_samples': 0, 'min_child_weight': 0, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+#train_score:[0.38526964330904245, 0.38728510274477185, 0.38224725572546875, 0.38399374542814474] mean:0.38469893680185696
+#test_score:[0.24296956473793827, 0.23270730548362675, 0.23985737772514373, 0.23327056919200723] mean:0.237201204284679
+# -----No.2 more overfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 4000, 'n_estimators': 4000, 'learning_rate': 0.002, 'num_leaves': 1024, 'max_depth': 10,
+              'min_child_samples': 0, 'min_child_weight': 0, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score:[0.42223176081434577, 0.48025631595793894, 0.47707841186507294, 0.46765101720819985] mean:0.4618043764613894
+#test_score:[0.24238674537621352, 0.23071295195664915, 0.23900095509362643, 0.22929111428303517] mean:0.23534794167738107
+#duration: 34.7min
+# -----No.3 more underfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'n_estimators': 3000, 'learning_rate': 0.002, 'num_leaves': 256, 'max_depth': 8,
+              'min_child_samples': 0, 'min_child_weight': 0, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score:[0.333019487928958,0.33446432588425684,0.3288853795677152,0.33466363406072447] mean:0.33275820686041363
+#test_score: [0.24076813393011331,0.23442018756163463,0.24022740110528182,0.2338307690616001]mean:0.23731162291465746
+#duration: 19.4min
+# -----No.4 more underfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'n_estimators': 3000, 'learning_rate': 0.002, 'num_leaves': 128, 'max_depth': 7,
+              'min_child_samples': 0, 'min_child_weight': 0, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score: [0.24223177590544473,0.23177343980749548,0.2373506953279124,0.23526943548837664] mean:0.29475084064547247
+#test_score:[0.24223177590544473,0.23177343980749548,0.2373506953279124,0.23526943548837664] mean:0.2366563366323073
+#duration: 14.5min
 
+# -----No.5 more underfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'n_estimators': 3000, 'learning_rate': 0.002, 'num_leaves': 256, 'max_depth': 8,
+              'min_child_samples': 10, 'min_child_weight': 0, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score:[0.3228513092527008, 0.32608287664061714, 0.3223114378161002, 0.3220477982636991]  mean:0.32332335549327934
+#test_score: [0.2454735203317758, 0.23451597078447883, 0.24159764935337835, 0.23679059269622207] mean:0.23959443329146377
+#duration: 17.09min
+
+
+# -----No.6 more underfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'n_estimators': 3000, 'learning_rate': 0.002, 'num_leaves': 256, 'max_depth': 8,
+              'min_child_samples': 10, 'min_child_weight': 0.002, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score:[0.3228513092527008,0.32608287664061714,0.3223114378161002,0.3220477982636991] mean:0.32332335549327934
+#test_score: [0.2454735203317758,0.23451597078447883,0.24159764935337835,0.23679059269622207]mean:0.23959443329146377
+#duration: 17.13min
+
+
+# -----No.7 more underfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'n_estimators': 3000, 'learning_rate': 0.002, 'num_leaves': 256, 'max_depth': 8,
+              'min_child_samples': 10, 'min_child_weight': 0.1, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score:[0.3228513092527008, 0.32608287664061714, 0.3223114378161002, 0.3220477982636991] mean:0.32332335549327934
+#test_score: [0.2454735203317758, 0.23451597078447883, 0.24159764935337835, 0.23679059269622207]mean:0.23959443329146377
+#duration: 16.88min
+
+
+# -----No.8 more underfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'n_estimators': 3000, 'learning_rate': 0.002, 'num_leaves': 256, 'max_depth': 8,
+              'min_child_samples': 15, 'min_child_weight': 0.1, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score: [0.24508569088327628, 0.2343704799276639, 0.24017294373545076, 0.23426967996253395]mean:0.3194767601869446
+#test_score:[0.24508569088327628, 0.2343704799276639, 0.24017294373545076, 0.23426967996253395] mean:0.2384746986272312
+#duration:  17.45min
+
+# -----No.9 more underfitting-----
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 3000, 'n_estimators': 3000, 'learning_rate': 0.002, 'num_leaves': 256, 'max_depth': 8,
+              'min_child_samples': 5, 'min_child_weight': 0.1, 'reg_alpha': 0, 'reg_lambda': 0,
+              'feature_fraction': 1, 'bagging_fraction': 1, 'bagging_freq': 5}
+lgb_model = lgb.LGBMRegressor(**lgb_params)
+t1 = time()
+lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
+t2 = time()
+duration = (t2-t1)/60.0
+#train_score: mean:0.
+#test_score: mean:0.
+#duration:  min
+
+
+
+# ============Online Test Result Record============
 #8-16：lightGBM params and online test map:0.232
 lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
               'num_boost_round': 150, 'learning_rate': 0.03, 'num_leaves': 128, 'max_depth': 9,
