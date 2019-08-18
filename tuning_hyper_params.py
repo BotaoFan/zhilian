@@ -323,9 +323,9 @@ t1 = time()
 lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
 t2 = time()
 duration = (t2-t1)/60.0
-#train_score: mean:0.
-#test_score: mean:0.
-#duration:  min
+#train_score: [0.32929924257062665,0.3331299549502403, 0.32834695288812193, 0.3274253285403742]mean:0.32955036973734075
+#test_score: [0.24385238577755503, 0.23340343613085218, 0.24023406810366243, 0.2340234381652093]mean:0.23787833204431974
+#duration:  18.35min
 
 
 
@@ -337,9 +337,14 @@ lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'ms
               'feature_fraction': 0.6, 'bagging_fraction': 0.9, 'bagging_freq': 5}
 lgb_model = lgb.LGBMRegressor(**lgb_params)
 lgb_train_score, lgb_test_score = cv_test_model(lgb_model, action_feats, kfold=4)
-#8-17：lightGBM params and online test map:0.232
+#8-17：lightGBM params and online test map:0.239
 lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
               'num_boost_round': 3000, 'learning_rate': 0.002, 'n_estimators': 3000, 'num_leaves': 128, 'max_depth': 9,
               'min_child_samples': 8, 'min_child_weight': 0.001, 'reg_alpha': 0, 'reg_lambda': 1,
               'feature_fraction': 0.8, 'bagging_fraction': 0.9, 'bagging_freq': 5}
 lgb_model = lgb.LGBMRegressor(**lgb_params)
+#8-19:lightGBM params and online test map:
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 6000, 'learning_rate': 0.0015, 'n_estimators': 6000, 'num_leaves': 128, 'max_depth': 9,
+              'min_child_samples': 8, 'min_child_weight': 0.001, 'reg_alpha': 0, 'reg_lambda': 1,
+              'feature_fraction': 0.8, 'bagging_fraction': 0.9, 'bagging_freq': 5}
