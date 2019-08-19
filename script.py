@@ -255,11 +255,11 @@ def get_one_hot(data, key_col_name):
     t1 = time()
     result = pd.DataFrame([], index=data.index, columns=value_list)
     result.iloc[:, :] = 0
-    data_nonan = data[pd.notna(data[key_col_name])][key_col_name]
+    data_series = data[key_col_name]
     count = 0
-    for i in data_nonan.index:
-        result.loc[i, data_nonan[i]] = 1
-        count += 1
+    for i in range(result.shape[0]):
+        if pd.notna(data_series.iloc[i]):
+            result.iloc[i][data_series.iloc[i]] = 1
         if np.mod(count, 1000) == 0:
             print count
     print time() - t1
