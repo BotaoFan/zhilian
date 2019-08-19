@@ -110,6 +110,33 @@ def set_score(df, set_name):
     return delivered_df, satisfied_df
 
 
+def cal_key_grade(df, key_col_name, grade_col_name=None):
+    '''
+    :param df: df[key_col_name, grade_col_name]
+    :return: df
+    '''
+    if grade_col_name is None:
+        df['count'] = 1
+        grade_col_name = 'count'
+    df_dict = defaultdict(lambda: 0)
+    for i in range(df.shape[0]):
+        if pd.notna(df.iloc[i][key_col_name]):
+            for content in df.iloc[i][key_col_name]:
+                df_dict[content] = df_dict[content] + df.iloc[i][grade_col_name]
+    df_pd = pd.DataFrame({'key': df_dict.keys(),  'grade': df_dict.values()})
+    df_pd.sort_values('grade',  ascending=False, inplace=True)
+    return df_pd
+
+
+def get_key_list(df, key_col_name):
+    key_set = set()
+    for i in range(df.shape[0]):
+        if pd.notna(df.iloc[i][key_col_name]):
+            for content in df.iloc[i][key_col_name]:
+                key_set.add(content)
+    return list(key_set)
+
+
 # ============== Clean and Features Generate  ==============
 # ======Data Loading========
 def load_raw_data(data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/data/'):
@@ -131,7 +158,7 @@ def load_raw_data(data_path = '/Users/botaofan/PycharmProjects/tianchi/zhilian/d
                        'start_work_date': object}
     test_user = pd.read_csv(data_path + "user_ToBePredicted", delimiter="\t", error_bad_lines=False, dtype=test_user_dtype)
     # load test_action
-    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_A_20190723", delim_whitespace=True)
+    test_action = pd.read_csv(data_path + "zhaopin_round1_user_exposure_B_20190819", delim_whitespace=True)
     user_action = raw_action.groupby(['user_id', 'jd_no'])['delivered', 'satisfied'].max().reset_index()
     return raw_user, raw_job, raw_action, test_user, test_action
 
@@ -221,6 +248,22 @@ def union_set(x):
     if pd.isna(b):
         b = set()
     return a | b
+
+
+def get_one_hot(data, key_col_name):
+    value_list = get_key_list(data, key_col_name)
+    t1 = time()
+    result = pd.DataFrame([], index=data.index, columns=value_list)
+    result.iloc[:, :] = 0
+    data_nonan = data[pd.notna(data[key_col_name])][key_col_name]
+    count = 0
+    for i in data_nonan.index:
+        result.loc[i, data_nonan[i]] = 1
+        count += 1
+        if np.mod(count, 1000) == 0:
+            print count
+    print time() - t1
+    return result
 
 
 # ====== Features Generation ========
@@ -538,24 +581,6 @@ def cv_test_model(model, action_feats, kfold=4):
 def show_cv_result(gscv):
     print('参数的最佳取值：{0}'.format(gscv.best_params_))
     print('最佳模型得分:{0}'.format(gscv.best_score_))
-
-
-def cal_key_grade(df, key_col_name, grade_col_name=None):
-    '''
-    :param df: df[key_col_name, grade_col_name]
-    :return: df
-    '''
-    if grade_col_name is None:
-        df['count'] = 1
-        grade_col_name = 'count'
-    df_dict = defaultdict(lambda: 0)
-    for i in range(df.shape[0]):
-        if pd.notna(df.iloc[i][key_col_name]):
-            for content in df.iloc[i][key_col_name]:
-                df_dict[content] = df_dict[content] + df.iloc[i][grade_col_name]
-    df_pd = pd.DataFrame({'key': df_dict.keys(),  'grade': df_dict.values()})
-    df_pd.sort_values('grade',  ascending=False, inplace=True)
-    return df_pd
 
 
 if __name__ == "__main__":
