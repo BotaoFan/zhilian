@@ -348,3 +348,51 @@ lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'ms
               'num_boost_round': 6000, 'learning_rate': 0.0015, 'n_estimators': 6000, 'num_leaves': 128, 'max_depth': 9,
               'min_child_samples': 8, 'min_child_weight': 0.001, 'reg_alpha': 0, 'reg_lambda': 1,
               'feature_fraction': 0.8, 'bagging_fraction': 0.9, 'bagging_freq': 5}
+
+
+#new_feature
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 4000, 'learning_rate': 0.002, 'n_estimators': 4000, 'num_leaves': 2048, 'max_depth': 11,
+              'min_child_samples': 4, 'min_child_weight': 0.0005, 'reg_alpha': 3, 'reg_lambda': 3,
+              'feature_fraction': 0.6, 'bagging_fraction': 0.6, 'bagging_freq': 5}
+'''
+[0.4315777576817291, 0.43582763411305, 0.42618078582295943, 0.4281639551725522]
+[0.24769832014923102,
+ 0.24278531881854962,
+ 0.24886223743913582,
+ 0.24349999935742234]
+ 0.2457114689410847'''
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 4000, 'learning_rate': 0.002, 'n_estimators': 4000, 'num_leaves': 2048, 'max_depth': 11,
+              'min_child_samples': 6, 'min_child_weight': 0.001, 'reg_alpha': 4, 'reg_lambda': 4,
+              'feature_fraction': 0.6, 'bagging_fraction': 0.6, 'bagging_freq': 5}
+'''
+[0.3996503723018438,
+ 0.40224449314386984,
+ 0.3950388814723937,
+ 0.39843346859477874]
+ [0.2482951923285271,
+ 0.24369054924930345,
+ 0.24876363297625198,
+ 0.24368140545545747]
+ 0.246107695002385
+'''
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 4000, 'learning_rate': 0.002, 'n_estimators': 4000, 'num_leaves': 2048, 'max_depth': 11,
+              'min_child_samples': 7, 'min_child_weight': 0.001, 'reg_alpha': 5, 'reg_lambda': 5,
+              'feature_fraction': 0.5, 'bagging_fraction': 0.5, 'bagging_freq': 5}
+'''
+[0.36354479678115936,
+ 0.36717081794495254,
+ 0.3607854181716067,
+ 0.3648383345039323]
+ [0.24653073084914628,
+ 0.24097596973451896,
+ 0.24770538634236824,
+ 0.24258428656753867]
+ 0.24444909337339304
+'''
+lgb_params = {'boosting_type': 'gbdt', 'objective': 'regression', 'metrics': 'mse',
+              'num_boost_round': 4500, 'learning_rate': 0.002, 'n_estimators': 4500, 'num_leaves': 2048, 'max_depth': 13,
+              'min_child_samples': 7, 'min_child_weight': 0.001, 'reg_alpha': 6, 'reg_lambda': 6,
+              'feature_fraction': 0.6, 'bagging_fraction': 0.6, 'bagging_freq': 5}

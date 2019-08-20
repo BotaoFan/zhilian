@@ -252,16 +252,17 @@ def union_set(x):
 
 def get_one_hot(data, key_col_name):
     value_list = get_key_list(data, key_col_name)
-    t1 = time()
     result = pd.DataFrame([], index=data.index, columns=value_list)
     result.iloc[:, :] = 0
     data_series = data[key_col_name]
     count = 0
+    t1 = time()
     for i in range(result.shape[0]):
         if pd.notna(data_series.iloc[i]):
             result.iloc[i][data_series.iloc[i]] = 1
         if np.mod(count, 1000) == 0:
             print count
+        count += 1
     print time() - t1
     return result
 
@@ -304,10 +305,10 @@ def feats_generate(action, user, job):
     action_feats['feat_desire_cur_indu_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['cur_industry_set'])).apply(find_len_set)
     action_feats['feat_cur_desire_indu_ratio'] = action_feats['feat_desire_cur_indu_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
     action_feats['feat_desire_cur_indu_ratio'] = action_feats['feat_desire_cur_indu_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_cur_indu_jaccard'] = action_feats['feat_desire_cur_indu_len'] / (
-                (action['desire_jd_industry_set'] - action['cur_industry_set']).apply(find_len_set) + (
-                    action['cur_industry_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
-                    'feat_desire_cur_indu_len'] + 0.0)
+    # action_feats['feat_desire_cur_indu_jaccard'] = action_feats['feat_desire_cur_indu_len'] / (
+    #             (action['desire_jd_industry_set'] - action['cur_industry_set']).apply(find_len_set) + (
+    #                 action['cur_industry_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
+    #                 'feat_desire_cur_indu_len'] + 0.0)
 
     # About desire and current type
     action_feats['feat_desire_jd_type_len'] = action['desire_jd_type_set'].apply(find_len_set)
@@ -315,83 +316,83 @@ def feats_generate(action, user, job):
     action_feats['feat_desire_cur_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['cur_jd_type_set'])).apply(find_len_set)
     action_feats['feat_cur_desire_type_len_ratio'] = action_feats['feat_desire_cur_type_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
     action_feats['feat_desire_cur_type_len_ratio'] = action_feats['feat_desire_cur_type_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_cur_type_jaccard'] = action_feats['feat_desire_cur_type_len'] / (
-                (action['desire_jd_type_set'] - action['cur_jd_type_set']).apply(find_len_set) + (
-                    action['cur_jd_type_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
-                    'feat_desire_cur_type_len'] + 0.0)
+    # action_feats['feat_desire_cur_type_jaccard'] = action_feats['feat_desire_cur_type_len'] / (
+    #             (action['desire_jd_type_set'] - action['cur_jd_type_set']).apply(find_len_set) + (
+    #                 action['cur_jd_type_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
+    #                 'feat_desire_cur_type_len'] + 0.0)
 
     # About titles of job and users' desire and current industry and type
     action_feats['feat_jd_title_len'] = action['jd_title_set'].apply(find_len_set)
     action_feats['feat_desire_indu_title_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['jd_title_set'])).apply(find_len_set)
     action_feats['feat_title_desire_indu_ratio'] = action_feats['feat_desire_indu_title_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
     action_feats['feat_desire_indu_title_ratio'] = action_feats['feat_desire_indu_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_indu_title_jaccard'] = action_feats['feat_desire_indu_title_len'] / (
-                (action['desire_jd_industry_set'] - action['jd_title_set']).apply(find_len_set) + (
-                    action['jd_title_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
-                    'feat_desire_indu_title_len'] + 0.0)
+    # action_feats['feat_desire_indu_title_jaccard'] = action_feats['feat_desire_indu_title_len'] / (
+    #             (action['desire_jd_industry_set'] - action['jd_title_set']).apply(find_len_set) + (
+    #                 action['jd_title_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
+    #                 'feat_desire_indu_title_len'] + 0.0)
 
     action_feats['feat_cur_indu_title_len'] = (action['cur_industry_set']-(action['cur_industry_set']-action['jd_title_set'])).apply(find_len_set)
     action_feats['feat_title_cur_indu_ratio'] = action_feats['feat_cur_indu_title_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
     action_feats['feat_cur_indu_title_ratio'] = action_feats['feat_cur_indu_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_cur_indu_title_jaccard'] = action_feats['feat_cur_indu_title_len'] / (
-                (action['cur_industry_set'] - action['jd_title_set']).apply(find_len_set) + (
-                    action['jd_title_set'] - action['cur_industry_set']).apply(find_len_set) + action_feats[
-                    'feat_cur_indu_title_len'] + 0.0)
+    # action_feats['feat_cur_indu_title_jaccard'] = action_feats['feat_cur_indu_title_len'] / (
+    #             (action['cur_industry_set'] - action['jd_title_set']).apply(find_len_set) + (
+    #                 action['jd_title_set'] - action['cur_industry_set']).apply(find_len_set) + action_feats[
+    #                 'feat_cur_indu_title_len'] + 0.0)
 
 
     action_feats['feat_desire_type_title_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_title_set'])).apply(find_len_set)
     action_feats['feat_title_desire_type_ratio'] = action_feats['feat_desire_type_title_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
     action_feats['feat_desire_type_title_ratio'] = action_feats['feat_desire_type_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_type_title_jaccard'] = action_feats['feat_desire_type_title_len'] / (
-                (action['desire_jd_type_set'] - action['jd_title_set']).apply(find_len_set) + (
-                    action['jd_title_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
-                    'feat_desire_type_title_len'] + 0.0)
+    # action_feats['feat_desire_type_title_jaccard'] = action_feats['feat_desire_type_title_len'] / (
+    #             (action['desire_jd_type_set'] - action['jd_title_set']).apply(find_len_set) + (
+    #                 action['jd_title_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
+    #                 'feat_desire_type_title_len'] + 0.0)
 
 
     action_feats['feat_cur_type_title_len'] = (action['cur_jd_type_set']-(action['cur_jd_type_set']-action['jd_title_set'])).apply(find_len_set)
     action_feats['feat_title_cur_type_ratio'] = action_feats['feat_cur_type_title_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
     action_feats['feat_cur_type_title_ratio'] = action_feats['feat_cur_type_title_len']/(action['jd_title_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_cur_type_title_jaccard'] = action_feats['feat_cur_type_title_len'] / (
-                (action['cur_jd_type_set'] - action['jd_title_set']).apply(find_len_set) + (
-                    action['jd_title_set'] - action['cur_jd_type_set']).apply(find_len_set) + action_feats[
-                    'feat_cur_type_title_len'] + 0.0)
+    # action_feats['feat_cur_type_title_jaccard'] = action_feats['feat_cur_type_title_len'] / (
+    #             (action['cur_jd_type_set'] - action['jd_title_set']).apply(find_len_set) + (
+    #                 action['jd_title_set'] - action['cur_jd_type_set']).apply(find_len_set) + action_feats[
+    #                 'feat_cur_type_title_len'] + 0.0)
 
     # About sub_type of job and users' desire and current industry and type
     action_feats['feat_jd_sub_type_len'] = action['jd_sub_type_set'].apply(find_len_set)
     action_feats['feat_desire_indu_job_type_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
     action_feats['feat_job_type_desire_indu_ratio'] = action_feats['feat_desire_indu_job_type_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.0)
     action_feats['feat_desire_indu_job_type_ratio'] = action_feats['feat_desire_indu_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_indu_job_type_jaccard'] = action_feats['feat_desire_indu_job_type_len'] / (
-                (action['desire_jd_industry_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
-                    action['jd_sub_type_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
-                    'feat_desire_indu_job_type_len'] + 0.0)
+    # action_feats['feat_desire_indu_job_type_jaccard'] = action_feats['feat_desire_indu_job_type_len'] / (
+    #             (action['desire_jd_industry_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
+    #                 action['jd_sub_type_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
+    #                 'feat_desire_indu_job_type_len'] + 0.0)
 
 
     action_feats['feat_cur_indu_job_type_len'] = (action['cur_industry_set']-(action['cur_industry_set']-action['jd_sub_type_set'])).apply(find_len_set)
     action_feats['feat_job_type_cur_indu_ratio'] = action_feats['feat_cur_indu_job_type_len']/(action['cur_industry_set'].apply(find_len_set) + 0.0)
     action_feats['feat_cur_indu_job_type_ratio'] = action_feats['feat_cur_indu_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_cur_indu_job_type_jaccard'] = action_feats['feat_cur_indu_job_type_len'] / (
-                (action['cur_industry_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
-                    action['jd_sub_type_set'] - action['cur_industry_set']).apply(find_len_set) + action_feats[
-                    'feat_cur_indu_job_type_len'] + 0.0)
+    # action_feats['feat_cur_indu_job_type_jaccard'] = action_feats['feat_cur_indu_job_type_len'] / (
+    #             (action['cur_industry_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
+    #                 action['jd_sub_type_set'] - action['cur_industry_set']).apply(find_len_set) + action_feats[
+    #                 'feat_cur_indu_job_type_len'] + 0.0)
 
 
     action_feats['feat_desire_type_job_type_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
     action_feats['feat_job_type_desire_type_ratio'] = action_feats['feat_desire_type_job_type_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
     action_feats['feat_desire_type_job_type_ratio'] = action_feats['feat_desire_type_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_type_job_type_jaccard'] = action_feats['feat_desire_type_job_type_len'] / (
-                (action['desire_jd_type_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
-                    action['jd_sub_type_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
-                    'feat_desire_type_job_type_len'] + 0.0)
+    # action_feats['feat_desire_type_job_type_jaccard'] = action_feats['feat_desire_type_job_type_len'] / (
+    #             (action['desire_jd_type_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
+    #                 action['jd_sub_type_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
+    #                 'feat_desire_type_job_type_len'] + 0.0)
 
 
     action_feats['feat_cur_type_job_type_len'] = (action['cur_jd_type_set']-(action['cur_jd_type_set']-action['jd_sub_type_set'])).apply(find_len_set)
     action_feats['feat_job_type_cur_type_ratio'] = action_feats['feat_cur_type_job_type_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
     action_feats['feat_cur_type_job_type_ratio'] = action_feats['feat_cur_type_job_type_len']/(action['jd_sub_type_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_cur_type_job_type_jaccard'] = action_feats['feat_cur_type_job_type_len'] / (
-                (action['cur_jd_type_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
-                    action['jd_sub_type_set'] - action['cur_jd_type_set']).apply(find_len_set) + action_feats[
-                    'feat_cur_type_job_type_len'] + 0.0)
+    # action_feats['feat_cur_type_job_type_jaccard'] = action_feats['feat_cur_type_job_type_len'] / (
+    #             (action['cur_jd_type_set'] - action['jd_sub_type_set']).apply(find_len_set) + (
+    #                 action['jd_sub_type_set'] - action['cur_jd_type_set']).apply(find_len_set) + action_feats[
+    #                 'feat_cur_type_job_type_len'] + 0.0)
 
 
     # About job key and users' desire and current industry and type
@@ -399,37 +400,37 @@ def feats_generate(action, user, job):
     action_feats['feat_desire_indu_job_key_len'] = (action['desire_jd_industry_set']-(action['desire_jd_industry_set']-action['key_set'])).apply(find_len_set)
     action_feats['feat_job_key_desire_indu_ratio'] = action_feats['feat_desire_indu_job_key_len']/(action['desire_jd_industry_set'].apply(find_len_set) + 0.00001)
     action_feats['feat_desire_indu_job_key_ratio'] = action_feats['feat_desire_indu_job_key_len']/(action['key_set'].apply(find_len_set) + 0.00001)
-    action_feats['feat_desire_indu_job_key_jaccard'] = action_feats['feat_desire_indu_job_key_len'] / (
-                (action['desire_jd_industry_set'] - action['key_set']).apply(find_len_set) + (
-                    action['key_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
-                    'feat_cur_type_job_type_len'] + 0.0)
+    # action_feats['feat_desire_indu_job_key_jaccard'] = action_feats['feat_desire_indu_job_key_len'] / (
+    #             (action['desire_jd_industry_set'] - action['key_set']).apply(find_len_set) + (
+    #                 action['key_set'] - action['desire_jd_industry_set']).apply(find_len_set) + action_feats[
+    #                 'feat_cur_type_job_type_len'] + 0.0)
 
 
     action_feats['feat_cur_indu_job_key_len'] = (action['cur_industry_set']-(action['cur_industry_set']-action['key_set'])).apply(find_len_set)
     action_feats['feat_job_key_cur_indu_ratio'] = action_feats['feat_cur_indu_job_key_len']/(action['cur_industry_set'].apply(find_len_set) + 0.00001)
     action_feats['feat_cur_indu_job_key_ratio'] = action_feats['feat_cur_indu_job_key_len']/(action['key_set'].apply(find_len_set) + 0.00001)
-    action_feats['feat_cur_indu_job_key_jaccard'] = action_feats['feat_cur_indu_job_key_len'] / (
-                (action['cur_industry_set'] - action['key_set']).apply(find_len_set) + (
-                    action['key_set'] - action['cur_industry_set']).apply(find_len_set) + action_feats[
-                    'feat_cur_indu_job_key_len'] + 0.0)
+    # action_feats['feat_cur_indu_job_key_jaccard'] = action_feats['feat_cur_indu_job_key_len'] / (
+    #             (action['cur_industry_set'] - action['key_set']).apply(find_len_set) + (
+    #                 action['key_set'] - action['cur_industry_set']).apply(find_len_set) + action_feats[
+    #                 'feat_cur_indu_job_key_len'] + 0.0)
 
 
     action_feats['feat_desire_type_job_key_len'] = (action['desire_jd_type_set']-(action['desire_jd_type_set']-action['key_set'])).apply(find_len_set)
     action_feats['feat_job_key_desire_type_ratio'] = action_feats['feat_desire_type_job_key_len']/(action['desire_jd_type_set'].apply(find_len_set) + 0.0)
     action_feats['feat_desire_type_job_key_ratio'] = action_feats['feat_desire_type_job_key_len']/(action['key_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_desire_type_job_key_jaccard'] = action_feats['feat_desire_type_job_key_len'] / (
-                (action['desire_jd_type_set'] - action['key_set']).apply(find_len_set) + (
-                    action['key_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
-                    'feat_desire_type_job_key_len'] + 0.0)
+    # action_feats['feat_desire_type_job_key_jaccard'] = action_feats['feat_desire_type_job_key_len'] / (
+    #             (action['desire_jd_type_set'] - action['key_set']).apply(find_len_set) + (
+    #                 action['key_set'] - action['desire_jd_type_set']).apply(find_len_set) + action_feats[
+    #                 'feat_desire_type_job_key_len'] + 0.0)
 
 
     action_feats['feat_cur_type_job_key_len'] = (action['cur_jd_type_set']-(action['cur_jd_type_set']-action['key_set'])).apply(find_len_set)
     action_feats['feat_job_key_cur_type_ratio'] = action_feats['feat_cur_type_job_key_len']/(action['cur_jd_type_set'].apply(find_len_set) + 0.0)
     action_feats['feat_cur_type_job_key_ratio'] = action_feats['feat_cur_type_job_key_len']/(action['key_set'].apply(find_len_set) + 0.0)
-    action_feats['feat_cur_type_job_key_jaccard'] = action_feats['feat_cur_type_job_key_len'] / (
-                (action['cur_jd_type_set'] - action['key_set']).apply(find_len_set) + (
-                    action['key_set'] - action['cur_jd_type_set']).apply(find_len_set) + action_feats[
-                    'feat_cur_type_job_key_len'] + 0.0)
+    # action_feats['feat_cur_type_job_key_jaccard'] = action_feats['feat_cur_type_job_key_len'] / (
+    #             (action['cur_jd_type_set'] - action['key_set']).apply(find_len_set) + (
+    #                 action['key_set'] - action['cur_jd_type_set']).apply(find_len_set) + action_feats[
+    #                 'feat_cur_type_job_key_len'] + 0.0)
 
     #About salary
     action_feats['feat_desire_jd_salary'] = action['desire_jd_salary_id']
@@ -593,17 +594,35 @@ if __name__ == "__main__":
     job = clean_job(raw_job, raw_action)
     action = train_action_generate(raw_action)
     action_feats, action = feats_generate(action, user, job)
+    #Add one hot features
+    job_sub_type_onehot = get_one_hot(job, 'jd_sub_type_set')
+    job_sub_type_onehot_sum = job_sub_type_onehot.sum()
+    job_sub_type_onehot_sum.sort_values(ascending=False, inplace=True)
+    job_sub_type_onehot_short = job_sub_type_onehot[job_sub_type_onehot_sum.head(100).index.values]
+    user_desire_indu_onehot = get_one_hot(user, 'desire_jd_industry_set')
+    user_cur_indu_onehot = get_one_hot(user, 'cur_industry_set')
+    action_feats = pd.merge(action_feats, job_sub_type_onehot_short,
+                            left_index=True, right_index=True, how='left', suffixes=['', '_job_type'])
+    action_feats = pd.merge(action_feats, user_desire_indu_onehot,
+                            left_index=True, right_index=True, how='left', suffixes=['', '_user_desire_indu'])
+    action_feats = pd.merge(action_feats, user_cur_indu_onehot,
+                            left_index=True, right_index=True, how='left', suffixes=['', '_user_cur_indu'])
     # action_feats.to_csv(data_path + 'action_feats.csv')
     # action.to_csv(data_path + 'action.csv')
     pred_user = clean_user(test_user)
     pred_job = job
     pred_action = test_action_generate(test_action)
     pred_action_feats, pred_action = feats_generate(pred_action, pred_user, pred_job)
-
+    pred_action_feats = pd.merge(pred_action_feats, job_sub_type_onehot_short,
+                            left_index=True, right_index=True, how='left', suffixes=['', '_job_type'])
+    pred_action_feats = pd.merge(pred_action_feats, user_desire_indu_onehot,
+                            left_index=True, right_index=True, how='left', suffixes=['', '_user_desire_indu'])
+    pred_action_feats = pd.merge(pred_action_feats, user_cur_indu_onehot,
+                            left_index=True, right_index=True, how='left', suffixes=['', '_user_cur_indu'])
     # ====== CV Model ======
-    params = {'subsample': 1, 'colsample_bytree': 1, 'gamma': 0.7, 'learning_rate': 0.1, 'max_depth': 4,
-              'min_child_weight': 4, 'n_estimators': 100, 'n_jobs': 4, 'random_state': 0, 'reg_alpha': 0,
-              'reg_lambda': 1,
+    params = {'subsample': 0.6, 'colsample_bytree': 0.6, 'gamma': 0.7, 'learning_rate': 0.002, 'max_depth': 11,
+              'min_child_weight': 6, 'n_estimators': 3000, 'n_jobs': -1, 'random_state': 0, 'reg_alpha': 4,
+              'reg_lambda': 4,
               'scale_pos_weight': 1, 'silent': True}
     xgb_model = xgb.XGBRegressor(**params)
     xgb_train_score, xgb_test_score = cv_test_model(xgb_model, action_feats, kfold=4)
